@@ -13,7 +13,7 @@ import sqlite3
 import threading
 import uuid
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any, Optional
 
 _DEFAULT_DB = Path(__file__).parent.parent / ".localcoder.db"
 _SCHEMA = Path(__file__).parent / "schema.sql"

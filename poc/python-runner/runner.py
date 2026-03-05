@@ -13,7 +13,6 @@ import asyncio
 import os
 import sys
 import textwrap
-from pathlib import Path
 from typing import Any
 
 _DEFAULT_TIMEOUT = int(os.environ.get("PYTHON_RUNNER_TIMEOUT", "10"))

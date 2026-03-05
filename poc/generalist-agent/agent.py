@@ -19,7 +19,7 @@ _POC_ROOT = Path(__file__).parent.parent
 if str(_POC_ROOT) not in sys.path:
     sys.path.insert(0, str(_POC_ROOT))
 
-from llm_gateway import gateway  # type: ignore[import-not-found]
+from llm_gateway import gateway  # noqa: E402  # type: ignore[import-not-found]
 
 _AGENT_SYSTEM_PROMPT = """\
 You are a generalist software engineering agent.

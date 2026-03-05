@@ -13,10 +13,8 @@ interactive session from start to finish.
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
-from typing import Any
 
 # Allow sibling packages to be imported when running the hub directly.
 _POC_ROOT = Path(__file__).parent.parent
