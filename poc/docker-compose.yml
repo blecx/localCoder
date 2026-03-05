@@ -1,0 +1,43 @@
+# localCoder PoC – docker-compose
+#
+# Services:
+#   hub           – central orchestration (exposes no HTTP port in PoC)
+#   python-runner – sandboxed Python execution helper
+#
+# Environment variables (override via a .env file in this directory):
+#   COPILOT_TOKEN   – GitHub OAuth token with Copilot access
+#   OPENAI_API_KEY  – OpenAI API key (fallback)
+#   LLM_API_KEY     – Generic OpenAI-compatible provider key
+#   LLM_API_BASE    – Generic provider base URL (e.g. http://ollama:11434/v1)
+#   LLM_MODEL       – Model name override
+
+version: "3.9"
+
+services:
+  hub:
+    build:
+      context: .
+      dockerfile: hub/Dockerfile
+    volumes:
+      - localcoder_data:/data
+    environment:
+      - LOCALCODER_DB=/data/localcoder.db
+      - COPILOT_TOKEN=${COPILOT_TOKEN:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_API_BASE=${LLM_API_BASE:-}
+      - LLM_MODEL=${LLM_MODEL:-}
+    stdin_open: true
+    tty: true
+
+  python-runner:
+    build:
+      context: .
+      dockerfile: python-runner/Dockerfile
+    volumes:
+      - /tmp:/tmp
+    environment:
+      - PYTHON_RUNNER_TIMEOUT=10
+
+volumes:
+  localcoder_data:
