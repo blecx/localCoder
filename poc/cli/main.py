@@ -1,125 +1,86 @@
 #!/usr/bin/env python3
 """
-poc/cli/main.py – command-line interface for localCoder PoC.
-
-Usage
------
-    python poc/cli/main.py [--session SESSION_ID] [--verbose]
-
-Interactive REPL:
-    Start without arguments and type your prompts.
-    Type ``exit`` or ``quit`` to end the session.
-
-Single-shot:
-    echo "Write a bubble-sort in Python" | python poc/cli/main.py
+localCoder CLI – HTTP REST client for the microservices.
 """
-
-from __future__ import annotations
-
 import argparse
-import asyncio
+import json
 import sys
-from pathlib import Path
+import urllib.request
+from urllib.error import URLError
 
-# Allow sibling packages when running the CLI directly.
-_POC_ROOT = Path(__file__).parent.parent
-if str(_POC_ROOT) not in sys.path:
-    sys.path.insert(0, str(_POC_ROOT))
+HUB_URL = "http://localhost:8000"
+GATEWAY_URL = "http://localhost:8001"
 
-from hub.hub import run_session  # noqa: E402
-from db import store as db_store  # noqa: E402
+def _request(method, url, data=None):
+    req = urllib.request.Request(url, method=method)
+    if data:
+        req.add_header("Content-Type", "application/json")
+        req.data = json.dumps(data).encode("utf-8")
+    try:
+        with urllib.request.urlopen(req) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except URLError as e:
+        print(f"Error connecting to {url}: {e}", file=sys.stderr)
+        sys.exit(1)
 
+def cmd_gateway_health(args):
+    result = _request("GET", f"{GATEWAY_URL}/health")
+    print(f"LLM Gateway  {GATEWAY_URL}")
+    print(f"  status : {result.get('status')}")
+    print(f"  mode   : {result.get('mode')}")
+    print(f"  model  : {result.get('model')}")
+    if result.get("stub_warning"):
+        print(f"  ⚠ stub_warning: true — running without a real LLM")
 
-def _build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        prog="localcoder",
-        description="localCoder PoC – AI coding assistant CLI",
-    )
-    p.add_argument(
-        "--session",
-        metavar="SESSION_ID",
-        help="Resume an existing session (omit to start a new one).",
-    )
-    p.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Print debug information.",
-    )
-    p.add_argument(
-        "--list-sessions",
-        action="store_true",
-        help="List recent sessions and exit.",
-    )
-    p.add_argument(
-        "prompt",
-        nargs="?",
-        help="Single-shot prompt (non-interactive mode).",
-    )
-    return p
+def cmd_submit(args):
+    data = {
+        "repo_url": args.repo,
+        "branch": args.branch,
+        "description": args.desc
+    }
+    result = _request("POST", f"{HUB_URL}/tasks", data)
+    print(f"Task created: id={result['id']}  status={result['status']}")
 
-
-async def _interactive(session_id: str | None, verbose: bool) -> None:
-    """Run an interactive REPL loop."""
-    print("localCoder PoC  –  type 'exit' to quit\n")
-    while True:
-        try:
-            user_input = input("You> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            break
-
-        if user_input.lower() in {"exit", "quit", "q"}:
-            break
-        if not user_input:
-            continue
-
-        try:
-            result = await run_session(
-                user_input,
-                session_id=session_id,
-                verbose=verbose,
-            )
-            # Support both legacy `reply` return and new `(session_id, reply)` tuple.
-            if isinstance(result, tuple) and len(result) == 2:
-                session_id, reply = result
-            else:
-                reply = result
-            print(f"\nAssistant> {reply}\n")
-        except Exception as exc:  # noqa: BLE001
-            print(f"[error] {exc}", file=sys.stderr)
-
-
-async def _single_shot(
-    prompt: str,
-    session_id: str | None,
-    verbose: bool,
-) -> None:
-    result = await run_session(prompt, session_id=session_id, verbose=verbose)
-    if isinstance(result, tuple) and len(result) == 2:
-        _, reply = result
-    else:
-        reply = result
-    print(reply)
-
-
-def main() -> None:
-    parser = _build_parser()
-    args = parser.parse_args()
-
-    if args.list_sessions:
-        sessions = db_store.list_sessions()
-        if not sessions:
-            print("No sessions found.")
-            return
-        for s in sessions:
-            print(f"{s['id']}  created={s['created_at']}  updated={s['updated_at']}")
+def cmd_list(args):
+    tasks = _request("GET", f"{HUB_URL}/tasks")
+    if not tasks:
+        print("No tasks found.")
         return
+    for t in tasks:
+        print(f"id={t['id']:<3} status={t['status']:<10} repo={t['repo_url']}")
 
-    if args.prompt:
-        asyncio.run(_single_shot(args.prompt, args.session, args.verbose))
-    else:
-        asyncio.run(_interactive(args.session, args.verbose))
+def cmd_status(args):
+    task = _request("GET", f"{HUB_URL}/tasks/{args.id}")
+    print(f"id={task['id']:<3} status={task['status']:<10} repo={task['repo_url']}")
 
+def main():
+    parser = argparse.ArgumentParser(prog="localcoder", description="localCoder CLI over REST.")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # gateway-health
+    subparsers.add_parser("gateway-health", help="Check LLM gateway status")
+
+    # submit
+    p_submit = subparsers.add_parser("submit", help="Submit a new task")
+    p_submit.add_argument("--repo", required=True, help="Repository URL")
+    p_submit.add_argument("--branch", default="main", help="Branch name (default: main)")
+    p_submit.add_argument("--desc", required=True, help="Task description")
+    p_submit.set_defaults(func=cmd_submit)
+
+    # list
+    p_list = subparsers.add_parser("list", help="List all tasks")
+    p_list.set_defaults(func=cmd_list)
+
+    # status
+    p_status = subparsers.add_parser("status", help="Get status of a specific task")
+    p_status.add_argument("id", type=int, help="Task ID")
+    p_status.set_defaults(func=cmd_status)
+
+    p_health = subparsers.choices["gateway-health"]
+    p_health.set_defaults(func=cmd_gateway_health)
+
+    args = parser.parse_args()
+    args.func(args)
 
 if __name__ == "__main__":
     main()
