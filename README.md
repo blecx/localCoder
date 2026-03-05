@@ -47,6 +47,7 @@ The PoC (`poc/`) implements:
 | [Quick-Install Guide](poc/docs/quick-install.md) | Step-by-step local setup instructions with requirements |
 | [Usage Guide](poc/docs/usage.md) | Stub mode, API keys, LLM selection, and three worked examples |
 | [PoC README](poc/README.md) | Architecture diagram, CLI reference, and hub API summary |
+| [Multi-Agent Software Factory — Idea Discussion](multi-agent-software-factory-idea-discussion.md) | Interview-style Q&A transcript, PoC/MVP goals, architecture rationale, and decision history |
 
 ---
 
