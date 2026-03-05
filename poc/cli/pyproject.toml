@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "localcoder-cli"
+version = "0.1.0"
+description = "CLI client for the localCoder multi-agent coding framework"
+requires-python = ">=3.10"
+dependencies = ["httpx>=0.27.0"]
+
+[project.scripts]
+localcoder = "localcoder.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]

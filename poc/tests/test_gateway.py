@@ -5,7 +5,6 @@ These tests mock HTTP calls so they run without real API credentials.
 """
 
 import asyncio
-import json
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -73,17 +72,17 @@ def test_openai_provider_success(monkeypatch):
 
 
 def test_fallback_to_second_provider(monkeypatch):
-    """Copilot configured but fails → should fall back to openai."""
-    monkeypatch.setenv("COPILOT_TOKEN", "ghu_fake")
+    """OpenAI configured but fails → should fall back to generic."""
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.setenv("LLM_API_KEY", "sk-generic")
+    monkeypatch.delenv("COPILOT_TOKEN", raising=False)
 
     call_count = [0]
 
     async def side_effect(*args, **kwargs):
         call_count[0] += 1
         if call_count[0] == 1:
-            raise Exception("Copilot error")
+            raise Exception("OpenAI error")
         mock_resp = MagicMock()
         mock_resp.json.return_value = _make_openai_response("Fallback worked!")
         mock_resp.raise_for_status = MagicMock()

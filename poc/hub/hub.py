@@ -1,10 +1,8 @@
 """
 poc/hub/hub.py – central orchestration hub for localCoder PoC.
 
-The hub wires together:
+The hub currently wires together:
   • The LLM gateway (with Copilot adapter + fallback)
-  • The generalist agent
-  • The python-runner service
   • Persistent session storage (via poc/db)
 
 It exposes an async ``run_session`` coroutine that drives a single
@@ -13,10 +11,8 @@ interactive session from start to finish.
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
-from typing import Any
 
 # Allow sibling packages to be imported when running the hub directly.
 _POC_ROOT = Path(__file__).parent.parent
@@ -31,7 +27,7 @@ async def run_session(
     user_input: str,
     session_id: str | None = None,
     verbose: bool = False,
-) -> str:
+) -> tuple[str, str]:
     """
     Drive one turn of a localCoder session.
 
@@ -46,8 +42,8 @@ async def run_session(
 
     Returns
     -------
-    str
-        The final assistant response.
+    tuple[str, str]
+        A tuple of (session_id, reply_text).
     """
     # ── 1. Session bookkeeping ────────────────────────────────────────
     if session_id is None:
@@ -92,7 +88,7 @@ async def run_session(
     if verbose:
         print(f"[hub] Assistant: {assistant_text[:120]}…")
 
-    return assistant_text
+    return session_id, assistant_text
 
 
 # ---------------------------------------------------------------------------
