@@ -38,18 +38,29 @@ async def run_python(
     import tempfile
 
     with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".py", delete=False, dir="/tmp"
+        mode="w", suffix=".py", delete=False
     ) as f:
         f.write(textwrap.dedent(code))
         tmp_path = f.name
 
     try:
+        # Construct a minimal environment for the sandboxed subprocess.
+        minimal_env = {
+            "PYTHONIOENCODING": "utf-8",
+        }
+        # Preserve only a small set of non-sensitive variables that are
+        # commonly needed for basic operation.
+        for key in ("PATH", "HOME"):
+            value = os.environ.get(key)
+            if value is not None:
+                minimal_env[key] = value
+
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             tmp_path,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
-            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+            env=minimal_env,
         )
         try:
             stdout_bytes, _ = await asyncio.wait_for(

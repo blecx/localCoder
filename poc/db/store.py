@@ -24,7 +24,12 @@ _local = threading.local()
 def _get_conn(db_path: str | Path | None = None) -> sqlite3.Connection:
     """Return a thread-local SQLite connection, creating the schema on first use."""
     path = str(db_path or os.environ.get("LOCALCODER_DB", _DEFAULT_DB))
-    if not hasattr(_local, "conn") or _local.db_path != path:
+    if not hasattr(_local, "conn") or getattr(_local, "db_path", None) != path:
+        if hasattr(_local, "conn"):
+            try:
+                _local.conn.close()
+            except Exception:
+                pass
         conn = sqlite3.connect(path, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")

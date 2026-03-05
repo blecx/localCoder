@@ -74,11 +74,16 @@ async def _interactive(session_id: str | None, verbose: bool) -> None:
             continue
 
         try:
-            reply = await run_session(
+            result = await run_session(
                 user_input,
                 session_id=session_id,
                 verbose=verbose,
             )
+            # Support both legacy `reply` return and new `(session_id, reply)` tuple.
+            if isinstance(result, tuple) and len(result) == 2:
+                session_id, reply = result
+            else:
+                reply = result
             print(f"\nAssistant> {reply}\n")
         except Exception as exc:  # noqa: BLE001
             print(f"[error] {exc}", file=sys.stderr)
@@ -89,7 +94,11 @@ async def _single_shot(
     session_id: str | None,
     verbose: bool,
 ) -> None:
-    reply = await run_session(prompt, session_id=session_id, verbose=verbose)
+    result = await run_session(prompt, session_id=session_id, verbose=verbose)
+    if isinstance(result, tuple) and len(result) == 2:
+        _, reply = result
+    else:
+        reply = result
     print(reply)
 
 

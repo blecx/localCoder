@@ -25,17 +25,14 @@ PROVIDERS_ENV_ORDER = ["copilot", "openai", "generic"]
 
 
 def _copilot_headers() -> dict[str, str] | None:
-    token = os.environ.get("COPILOT_TOKEN")
-    if not token:
-        return None
-    return {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "Copilot-Integration-Id": "vscode-chat",
-        "Editor-Version": "vscode/1.85.0",
-        "Editor-Plugin-Version": "copilot-chat/0.11.1",
-    }
+    """
+    Copilot currently requires a short-lived chat token obtained via a
+    dedicated OAuth→token exchange flow (see the Copilot adapter). This
+    gateway module does not perform that exchange, so we avoid configuring
+    a Copilot provider here rather than incorrectly using COPILOT_TOKEN as
+    a bearer token, which would fail authentication at runtime.
+    """
+    return None
 
 
 def _openai_headers() -> dict[str, str] | None:
