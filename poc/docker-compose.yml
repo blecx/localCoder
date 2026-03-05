@@ -1,0 +1,84 @@
+version: "3.9"
+
+# ─────────────────────────── shared volumes ───────────────────────────────────
+volumes:
+  db-data:
+  artifacts:          # hub stores uploaded artifacts here
+  repos:              # canonical git mirrors + worktrees
+  sandbox:            # generalist agent sandbox copies
+  runner:             # python-runner sandbox copies
+
+# ─────────────────────────── services ────────────────────────────────────────
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: hub
+      POSTGRES_PASSWORD: hub
+      POSTGRES_DB: hub
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hub"]
+      interval: 5s
+      retries: 10
+
+  # ── Hub (FastAPI + PostgreSQL) ───────────────────────────────────────────────
+  hub:
+    build: ./hub
+    environment:
+      DATABASE_URL: postgresql://hub:hub@db:5432/hub
+      ARTIFACTS_DIR: /data/artifacts
+      REPOS_DIR: /data/repos
+    volumes:
+      - artifacts:/data/artifacts
+      - repos:/data/repos
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ── LLM Gateway ─────────────────────────────────────────────────────────────
+  llm-gateway:
+    build: ./llm-gateway
+    environment:
+      # Leave OPENAI_API_KEY unset to run in stub mode.
+      # Set it (via .env or shell) to route to real OpenAI.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+    ports:
+      - "8001:8001"
+
+  # ── Generalist Agent ────────────────────────────────────────────────────────
+  agent-generalist:
+    build: ./agent-generalist
+    environment:
+      HUB_URL: http://hub:8000
+      LLM_GATEWAY_URL: http://llm-gateway:8001
+      REPOS_DIR: /data/repos
+      SANDBOX_DIR: /data/sandbox
+      POLL_INTERVAL: "5"
+    volumes:
+      - repos:/data/repos
+      - sandbox:/data/sandbox
+    depends_on:
+      - hub
+      - llm-gateway
+
+  # ── Python Runner ───────────────────────────────────────────────────────────
+  python-runner:
+    build: ./python-runner
+    environment:
+      HUB_URL: http://hub:8000
+      REPOS_DIR: /data/repos
+      RUNNER_DIR: /data/runner
+      POLL_INTERVAL: "10"
+    volumes:
+      - repos:/data/repos
+      - runner:/data/runner
+    depends_on:
+      - hub
