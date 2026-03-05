@@ -2,9 +2,12 @@
 .env
 *.db
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
+*.pyd
 .pytest_cache/
 dist/
 build/
 *.egg-info/
+.venv/
+venv/
